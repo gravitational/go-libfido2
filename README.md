@@ -1,3 +1,29 @@
+# Why fork?
+
+This repository is a fork of
+[keys-pub/go-libfido2](https://github.com/keys-pub/go-libfido2/), focused on the
+needs of [Teleport](https://github.com/gravitational/teleport).
+
+The fork exists because:
+
+1. It allows us to experiment and land required changes to go-libfido2 faster;
+   and
+2. It allows us to tweak CGO build directives for the Teleport binaries.
+
+We do intend to contribute widely valuable changes to the original repo, meaning
+that over time (1) should become a non-issue. If the CGO build changes turn out
+to be widely applicable (and accepted by the upstream repo), then the fork
+becomes obsolete.
+
+The `master` branch reflects the upstream master.
+The `teleport` branch is the default and reflects the library version used by
+Teleport.
+
+There is no concept of semantic versioning for the `teleport` branch, it rolls
+forward as Teleport needs it to.
+
+You are looking at the `teleport` branch now.
+
 # go-libfido2
 
 Go wrapper for libfido2.
