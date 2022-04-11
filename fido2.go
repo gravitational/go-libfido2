@@ -1,9 +1,13 @@
 package libfido2
 
 /*
-#cgo darwin CFLAGS: -I/usr/local/opt/openssl@1.1/include
-#cgo darwin,!libfido2static LDFLAGS: -lfido2
-#cgo darwin,libfido2static LDFLAGS: -framework CoreFoundation -framework IOKit /usr/local/lib/libfido2.a /usr/local/lib/libcbor.a /usr/local/opt/openssl@1.1/lib/libcrypto.a
+#cgo darwin,amd64 CFLAGS: -I/usr/local/opt/openssl@1.1/include
+#cgo darwin,amd64,!libfido2static LDFLAGS: -lfido2
+#cgo darwin,amd64,libfido2static LDFLAGS: -framework CoreFoundation -framework IOKit /usr/local/lib/libfido2.a /usr/local/lib/libcbor.a /usr/local/opt/openssl@1.1/lib/libcrypto.a
+
+#cgo darwin,arm64 CFLAGS: -I/opt/homebrew/opt/libfido2/include -I/opt/homebrew/opt/openssl@1.1/include
+#cgo darwin,arm64,!libfido2static LDFLAGS: /opt/homebrew/opt/libfido2/lib/libfido2.dylib
+#cgo darwin,arm64,libfido2static LDFLAGS: -framework CoreFoundation -framework IOKit /usr/local/lib/libfido2.a /usr/local/lib/libcbor.a /opt/homebrew/opt/openssl@1.1/lib/libcrypto.a
 
 #cgo linux,!libfido2static LDFLAGS: -lfido2
 #cgo linux,libfido2static LDFLAGS: /usr/local/lib/libfido2.a /usr/local/lib/libcbor.a /usr/lib/x86_64-linux-gnu/libcrypto.a -ldl -lpthread -ludev
