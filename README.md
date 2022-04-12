@@ -29,6 +29,8 @@ libraries are required for static builds:
 * /usr/local/lib/libcbor.a
 * /usr/lib/x86_64-linux-gnu/libcrypto.a (Linux)
 * /usr/local/opt/openssl@1.1/lib/libcrypto.a (macOS)
+* /usr/local/lib/libudev.a (Linux,
+  [libeudev](https://github.com/eudev-project/eudev))
 
 Other system libraries are linked dynamically (such as `libudev` and `libdl` on
 Linux).

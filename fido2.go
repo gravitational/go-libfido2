@@ -10,7 +10,7 @@ package libfido2
 #cgo darwin,arm64,libfido2static LDFLAGS: -framework CoreFoundation -framework IOKit /usr/local/lib/libfido2.a /usr/local/lib/libcbor.a /opt/homebrew/opt/openssl@1.1/lib/libcrypto.a
 
 #cgo linux,!libfido2static LDFLAGS: -lfido2
-#cgo linux,libfido2static LDFLAGS: /usr/local/lib/libfido2.a /usr/local/lib/libcbor.a /usr/lib/x86_64-linux-gnu/libcrypto.a -ldl -lpthread -ludev
+#cgo linux,libfido2static LDFLAGS: /usr/local/lib/libfido2.a /usr/local/lib/libcbor.a /usr/local/lib/libudev.a /usr/lib/x86_64-linux-gnu/libcrypto.a -ldl -lpthread
 
 #include <fido.h>
 #include <fido/credman.h>
