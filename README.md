@@ -21,19 +21,11 @@ The `teleport` branch is the default and reflects the library version used by
 Teleport. There is no concept of semantic versioning for the `teleport` branch,
 it rolls forward as Teleport needs it to.
 
-All builds are dynamic by default (Linux and macOS). You may use the
-`libfido2static` build tag to force static builds instead. The following
-libraries are required for static builds:
-
-* /usr/local/lib/libfido2.a
-* /usr/local/lib/libcbor.a
-* /usr/lib/x86_64-linux-gnu/libcrypto.a (Linux)
-* /usr/local/opt/openssl@1.1/lib/libcrypto.a (macOS)
-* /usr/local/lib/libudev.a (Linux,
-  [libeudev](https://github.com/eudev-project/eudev))
-
-Other system libraries are linked dynamically (such as `libudev` and `libdl` on
-Linux).
+Builds are dynamic by default (Linux and macOS). You may use the
+`libfido2static` build tag to force static builds instead. Both rely on
+`pkg-config` (eg, `pkg-config --cflags --libs libfido2` must resolve correctly).
+Static builds refer to the `libfido2-static` library; users are expected to
+write their own definition for the libfido2-static.pc file in this case.
 
 You are looking at the `teleport` branch now.
 
