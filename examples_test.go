@@ -104,6 +104,10 @@ func ExampleDevice_Assertion() {
 	if os.Getenv("FIDO2_EXAMPLES") != "1" {
 		return
 	}
+
+	// Note: change as appropriate.
+	const pin = "12345"
+
 	locs, err := libfido2.DeviceLocations()
 	if err != nil {
 		log.Fatal(err)
@@ -123,7 +127,6 @@ func ExampleDevice_Assertion() {
 	cdh := libfido2.RandBytes(32)
 	userID := libfido2.RandBytes(32)
 	salt := libfido2.RandBytes(32)
-	pin := "12345"
 
 	attest, err := device.MakeCredential(
 		cdh,
@@ -152,7 +155,7 @@ func ExampleDevice_Assertion() {
 	log.Printf("Type: %s\n", attest.CredentialType)
 	log.Printf("Sig: %s\n", hex.EncodeToString(attest.Sig))
 
-	assertion, err := device.Assertion(
+	assertions, err := device.Assertion(
 		"keys.pub",
 		cdh,
 		[][]byte{attest.CredentialID},
@@ -166,7 +169,11 @@ func ExampleDevice_Assertion() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if want := 1; len(assertions) != want {
+		log.Fatalf("Unexpected number of assertions: got %v, want %v", len(assertions), want)
+	}
 
+	assertion := assertions[0]
 	log.Printf("Assertion:\n")
 	log.Printf("AuthDataCBOR: %s\n", hex.EncodeToString(assertion.AuthDataCBOR))
 	log.Printf("HMACSecret: %s\n", hex.EncodeToString(assertion.HMACSecret))
@@ -230,7 +237,7 @@ func ExampleDevice_Credentials() {
 	//
 }
 
-func ExampleDevice_Reset() {
+func Dont_ExampleDevice_Reset() {
 	if os.Getenv("FIDO2_EXAMPLES") != "1" {
 		return
 	}
@@ -267,7 +274,7 @@ func ExampleDevice_Reset() {
 
 }
 
-func ExampleDevice_SetPIN() {
+func Dont_ExampleDevice_SetPIN() {
 	if os.Getenv("FIDO2_EXAMPLES_SET_PIN") != "1" {
 		return
 	}
@@ -400,7 +407,7 @@ func ExampleDevice_Assertion_hmacSecret() {
 	}
 	salt := bytes.Repeat([]byte{0x02}, 32)
 
-	assertion, err := device.Assertion(
+	assertions, err := device.Assertion(
 		rpID,
 		cdh,
 		[][]byte{credentialID},
@@ -415,7 +422,11 @@ func ExampleDevice_Assertion_hmacSecret() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if want := 1; len(assertions) != want {
+		log.Fatalf("Unexpected number of assertions: got %v, want %v", len(assertions), want)
+	}
 
+	assertion := assertions[0]
 	if testVector.Secret != hex.EncodeToString(assertion.HMACSecret) {
 		log.Fatalf("Expected %s", testVector.Secret)
 	}

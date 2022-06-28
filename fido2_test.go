@@ -10,6 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TODO(codingllama): Revisit test suite.
+//  It can't run in an automated manner and is rather difficult to run manually
+//  (without editing files).
+
 // TODO: It's important tests are run serially (a device can't handle concurrent requests).
 
 func TestDevices(t *testing.T) {

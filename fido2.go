@@ -250,6 +250,8 @@ func (d *Device) open() (*C.fido_dev_t, error) {
 	return dev, nil
 }
 
+// TODO(codingllama): Openning/closing the device for every operation seems
+//  wasteful. Consider changing it.
 func (d *Device) close(dev *C.fido_dev_t) {
 	d.Lock()
 	d.dev = nil
@@ -640,13 +642,17 @@ type AssertionOpts struct {
 	HMACSalt   []byte
 }
 
-// Assertion ...
+// Assertion asks the FIDO2 device for an assertion.
+// If credentialIDs is set, only the supplied credentials are considered.
+// If credentialIDs is empty/nil, any credentials for the rpID are used.
+// Biometric devices may allow an empty pin, otherwise check for ErrPinRequired.
+// Returns an assertion for each applicable credential.
 func (d *Device) Assertion(
 	rpID string,
 	clientDataHash []byte,
 	credentialIDs [][]byte,
 	pin string,
-	opts *AssertionOpts) (*Assertion, error) {
+	opts *AssertionOpts) ([]*Assertion, error) {
 
 	if opts == nil {
 		opts = &AssertionOpts{}
@@ -705,48 +711,51 @@ func (d *Device) Assertion(
 		return nil, errors.Wrapf(errFromCode(cErr), "failed to get assertion")
 	}
 
-	// count := int(C.fido_assert_count(cAssert))
-	cIdx := C.size_t(0)
+	count := uint64(C.fido_assert_count(cAssert))
+	resp := make([]*Assertion, 0, count)
+	for i := uint64(0); i < count; i++ {
+		cIdx := C.size_t(i)
 
-	// Authdata here is CBOR encoded
-	cAuthDataLen := C.fido_assert_authdata_len(cAssert, cIdx)
-	cAuthDataPtr := C.fido_assert_authdata_ptr(cAssert, cIdx)
-	authDataCBOR := C.GoBytes(unsafe.Pointer(cAuthDataPtr), C.int(cAuthDataLen))
+		// Authdata here is CBOR encoded
+		cAuthDataLen := C.fido_assert_authdata_len(cAssert, cIdx)
+		cAuthDataPtr := C.fido_assert_authdata_ptr(cAssert, cIdx)
+		authDataCBOR := C.GoBytes(unsafe.Pointer(cAuthDataPtr), C.int(cAuthDataLen))
 
-	cHMACLen := C.fido_assert_hmac_secret_len(cAssert, cIdx)
-	cHMACPtr := C.fido_assert_hmac_secret_ptr(cAssert, cIdx)
-	hmacSecret := C.GoBytes(unsafe.Pointer(cHMACPtr), C.int(cHMACLen))
+		cHMACLen := C.fido_assert_hmac_secret_len(cAssert, cIdx)
+		cHMACPtr := C.fido_assert_hmac_secret_ptr(cAssert, cIdx)
+		hmacSecret := C.GoBytes(unsafe.Pointer(cHMACPtr), C.int(cHMACLen))
 
-	cSigLen := C.fido_assert_sig_len(cAssert, cIdx)
-	cSigPtr := C.fido_assert_sig_ptr(cAssert, cIdx)
-	sig := C.GoBytes(unsafe.Pointer(cSigPtr), C.int(cSigLen))
+		cSigLen := C.fido_assert_sig_len(cAssert, cIdx)
+		cSigPtr := C.fido_assert_sig_ptr(cAssert, cIdx)
+		sig := C.GoBytes(unsafe.Pointer(cSigPtr), C.int(cSigLen))
 
-	cIDLen := C.fido_assert_id_len(cAssert, cIdx)
-	cIDPtr := C.fido_assert_id_ptr(cAssert, cIdx)
-	cID := C.GoBytes(unsafe.Pointer(cIDPtr), C.int(cIDLen))
+		cIDLen := C.fido_assert_id_len(cAssert, cIdx)
+		cIDPtr := C.fido_assert_id_ptr(cAssert, cIdx)
+		cID := C.GoBytes(unsafe.Pointer(cIDPtr), C.int(cIDLen))
 
-	cUserIDLen := C.fido_assert_user_id_len(cAssert, cIdx)
-	cUserIDPtr := C.fido_assert_user_id_ptr(cAssert, cIdx)
-	userID := C.GoBytes(unsafe.Pointer(cUserIDPtr), C.int(cUserIDLen))
+		cUserIDLen := C.fido_assert_user_id_len(cAssert, cIdx)
+		cUserIDPtr := C.fido_assert_user_id_ptr(cAssert, cIdx)
+		userID := C.GoBytes(unsafe.Pointer(cUserIDPtr), C.int(cUserIDLen))
 
-	// cUserName := C.fido_assert_user_name(cAssert, cIdx)
-	// cUserDisplayName := C.fido_assert_user_display_name(cAssert, cIdx)
-	// cUserIcon := C.fido_assert_user_icon(cAssert, cIdx)
+		cUserName := C.fido_assert_user_name(cAssert, cIdx)
+		cUserDisplayName := C.fido_assert_user_display_name(cAssert, cIdx)
+		cUserIcon := C.fido_assert_user_icon(cAssert, cIdx)
 
-	assertion := &Assertion{
-		AuthDataCBOR: authDataCBOR,
-		HMACSecret:   hmacSecret,
-		Sig:          sig,
-		CredentialID: cID,
-		User: User{
-			ID: userID,
-			// 	Name:        C.GoString(cUserName),
-			// 	DisplayName: C.GoString(cUserDisplayName),
-			// 	Icon:        C.GoString(cUserIcon),
-		},
+		resp = append(resp, &Assertion{
+			AuthDataCBOR: authDataCBOR,
+			HMACSecret:   hmacSecret,
+			Sig:          sig,
+			CredentialID: cID,
+			User: User{
+				ID:          userID,
+				Name:        C.GoString(cUserName),
+				DisplayName: C.GoString(cUserDisplayName),
+				Icon:        C.GoString(cUserIcon),
+			},
+		})
 	}
 
-	return assertion, nil
+	return resp, nil
 }
 
 // CredentialsInfo ...
