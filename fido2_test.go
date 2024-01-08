@@ -72,7 +72,7 @@ func TestDeviceAssertionCancel(t *testing.T) {
 	salt := libfido2.RandBytes(32)
 	pin := getPIN()
 
-	t.Logf("Make credential\n")
+	t.Log("Touch your device")
 	attest, err := device.MakeCredential(
 		cdh,
 		libfido2.RelyingParty{
@@ -93,10 +93,11 @@ func TestDeviceAssertionCancel(t *testing.T) {
 
 	go func() {
 		time.Sleep(time.Second * 2)
-		t.Logf("Cancel")
+		t.Log("Cancel")
 		device.Cancel()
 	}()
 
+	t.Log("DON'T touch your device")
 	_, err = device.Assertion(
 		"keys.pub",
 		cdh,

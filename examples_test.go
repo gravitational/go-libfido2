@@ -359,6 +359,9 @@ func ExampleDevice_MakeCredential_hmacSecret() {
 	}
 
 	log.Printf("Credential ID: %s\n", hex.EncodeToString(attest.CredentialID))
+
+	// Output:
+	//
 }
 
 type testVector struct {
@@ -437,9 +440,12 @@ func ExampleDevice_Assertion_hmacSecret() {
 	if testVector.Secret != hex.EncodeToString(assertion.HMACSecret) {
 		log.Fatalf("Expected %s", testVector.Secret)
 	}
+
+	// Output:
+	//
 }
 
-func ExampleDevice_DeleteCredential() {
+func Dont_ExampleDevice_DeleteCredential() {
 	if os.Getenv("FIDO2_EXAMPLES") != "1" {
 		return
 	}
@@ -555,7 +561,7 @@ func ExampleDevice_BioList() {
 	//
 }
 
-func ExampleDevice_BioDelete() {
+func Dont_ExampleDevice_BioDelete() {
 	if os.Getenv("FIDO2_EXAMPLES") != "1" {
 		return
 	}
@@ -594,7 +600,7 @@ func ExampleDevice_BioDelete() {
 	//
 }
 
-func ExampleDevice_BioSetTemplateName() {
+func Dont_ExampleDevice_BioSetTemplateName() {
 	if os.Getenv("FIDO2_EXAMPLES") != "1" {
 		return
 	}
