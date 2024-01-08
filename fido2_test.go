@@ -24,6 +24,7 @@ func TestDevices(t *testing.T) {
 	for _, loc := range locs {
 		device, err := libfido2.NewDevice(loc.Path)
 		require.NoError(t, err)
+		defer device.Close()
 
 		isFIDO2, err := device.IsFIDO2()
 		require.NoError(t, err)
@@ -59,6 +60,7 @@ func TestDeviceAssertionCancel(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer device.Close()
 
 	cdh := libfido2.RandBytes(32)
 	userID := libfido2.RandBytes(32)

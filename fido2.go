@@ -30,9 +30,13 @@ func init() {
 type Device struct {
 	path string
 
-	// Device instance if open.
+	// mu guards dev.
+	mu sync.Mutex
+
+	// dev is the underlying libfido2 device.
+	// If nil either the Device wasn't properly initialized or was closed.
+	// Prefer getDevice instead of accessing this field directly.
 	dev *C.fido_dev_t
-	sync.Mutex
 }
 
 // DeviceLocation ...
@@ -234,56 +238,101 @@ func DeviceLocations() ([]*DeviceLocation, error) {
 }
 
 // NewDevice opens device at path.
+// Opened devices must be explicitly closed.
 func NewDevice(path string) (*Device, error) {
 	if path == "" {
 		return nil, errors.Errorf("empty device path")
 	}
+
+	dev, err := openDevice(path)
+	if err != nil {
+		return nil, fmt.Errorf("open device: %w", err)
+	}
+
 	return &Device{
-		path: fmt.Sprintf("%s", path),
+		path: path,
+		dev:  dev,
 	}, nil
 }
 
-func (d *Device) open() (*C.fido_dev_t, error) {
+func openDevice(path string) (*C.fido_dev_t, error) {
+	pathC := C.CString(path)
+	defer C.free(unsafe.Pointer(pathC))
+
 	dev := C.fido_dev_new()
-	if cErr := C.fido_dev_open(dev, C.CString(d.path)); cErr != C.FIDO_OK {
-		return nil, errors.Wrap(errFromCode(cErr), "failed to open")
+	if cErr := C.fido_dev_open(dev, pathC); cErr != C.FIDO_OK {
+		return nil, errFromCode(cErr)
 	}
-	d.dev = dev
+
 	return dev, nil
 }
 
-// TODO(codingllama): Openning/closing the device for every operation seems
-// wasteful. Consider changing it.
-func (d *Device) close(dev *C.fido_dev_t) {
-	d.Lock()
-	d.dev = nil
-	d.Unlock()
-
-	if cErr := C.fido_dev_close(dev); cErr != C.FIDO_OK {
-		logger.Errorf("%v", errors.Wrap(errFromCode(cErr), "failed to close"))
+func (d *Device) getDevice() (*C.fido_dev_t, error) {
+	if d == nil {
+		return nil, errors.New("devicen nil")
 	}
-	C.fido_dev_free(&dev)
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if d.dev == nil {
+		return nil, errors.New("device closed or not initialized")
+	}
+
+	return d.dev, nil
+}
+
+// Close closes and frees the underlying libfido2 device.
+// All devices must be explicitly closed. Closing a device multiple times is
+// harmless, as only the first Close takes effect.
+func (d *Device) Close() error {
+	if d == nil {
+		return nil
+	}
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if d.dev == nil {
+		return nil
+	}
+
+	cErr := C.fido_dev_close(d.dev)
+	C.fido_dev_free(&d.dev)
+	d.dev = nil // Likely already freed by fido_dev_free, nil again to be safe.
+	if cErr != C.FIDO_OK {
+		return fmt.Errorf("close device: %w", errFromCode(cErr))
+	}
+
+	return nil
 }
 
 // Cancel an action.
 func (d *Device) Cancel() error {
-	d.Lock()
-	defer d.Unlock()
-	if d.dev != nil {
-		if cErr := C.fido_dev_cancel(d.dev); cErr != C.FIDO_OK {
-			return errors.Wrap(errFromCode(cErr), "failed to cancel")
-		}
+	if d == nil {
+		return nil
 	}
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if d.dev == nil {
+		return nil
+	}
+
+	if cErr := C.fido_dev_cancel(d.dev); cErr != C.FIDO_OK {
+		return errors.Wrap(errFromCode(cErr), "failed to cancel")
+	}
+
 	return nil
 }
 
 // CTAPHIDInfo ...
 func (d *Device) CTAPHIDInfo() (*HIDInfo, error) {
-	dev, err := d.open()
+	dev, err := d.getDevice()
 	if err != nil {
 		return nil, err
 	}
-	defer d.close(dev)
 
 	protocol := C.fido_dev_protocol(dev)
 	major := C.fido_dev_major(dev)
@@ -302,11 +351,10 @@ func (d *Device) CTAPHIDInfo() (*HIDInfo, error) {
 
 // IsFIDO2 returns true if device supports FIDO2.
 func (d *Device) IsFIDO2() (bool, error) {
-	dev, err := d.open()
+	dev, err := d.getDevice()
 	if err != nil {
 		return false, err
 	}
-	defer d.close(dev)
 
 	isFIDO2 := bool(C.fido_dev_is_fido2(dev))
 	return isFIDO2, nil
@@ -314,11 +362,10 @@ func (d *Device) IsFIDO2() (bool, error) {
 
 // Type returns device type.
 func (d *Device) Type() (DeviceType, error) {
-	dev, err := d.open()
+	dev, err := d.getDevice()
 	if err != nil {
 		return UnknownDevice, err
 	}
-	defer d.close(dev)
 
 	isFIDO2 := bool(C.fido_dev_is_fido2(dev))
 	if isFIDO2 {
@@ -330,11 +377,10 @@ func (d *Device) Type() (DeviceType, error) {
 // Info represents authenticatorGetInfo (0x04).
 // https://fidoalliance.org/specs/fido2/fido-client-to-authenticator-protocol-v2.1-rd-20191217.html#authenticatorGetInfo
 func (d *Device) Info() (*DeviceInfo, error) {
-	dev, err := d.open()
+	dev, err := d.getDevice()
 	if err != nil {
 		return nil, err
 	}
-	defer d.close(dev)
 
 	isFIDO2 := bool(C.fido_dev_is_fido2(dev))
 	if !isFIDO2 {
@@ -455,11 +501,10 @@ func (d *Device) MakeCredential(
 		return nil, errors.Errorf("no user name specified")
 	}
 
-	dev, err := d.open()
+	dev, err := d.getDevice()
 	if err != nil {
 		return nil, err
 	}
-	defer d.close(dev)
 
 	cCred := C.fido_cred_new()
 	defer C.fido_cred_free(&cCred)
@@ -590,11 +635,10 @@ func credential(cCred *C.fido_cred_t) (*Credential, error) {
 
 // SetPIN ...
 func (d *Device) SetPIN(pin string, old string) error {
-	dev, err := d.open()
+	dev, err := d.getDevice()
 	if err != nil {
 		return err
 	}
-	defer d.close(dev)
 
 	if cErr := C.fido_dev_set_pin(dev, C.CString(pin), cStringOrNil(old)); cErr != C.FIDO_OK {
 		return errors.Wrap(errFromCode(cErr), "failed to set pin")
@@ -609,11 +653,10 @@ func (d *Device) SetPIN(pin string, old string) error {
 // seconds after power-up, and ErrActionTimeout if the user fails to confirm the reset by touching the key within 30
 // seconds.
 func (d *Device) Reset() error {
-	dev, err := d.open()
+	dev, err := d.getDevice()
 	if err != nil {
 		return err
 	}
-	defer d.close(dev)
 
 	if cErr := C.fido_dev_reset(dev); cErr != C.FIDO_OK {
 		return errors.Wrap(errFromCode(cErr), "failed to reset")
@@ -623,11 +666,10 @@ func (d *Device) Reset() error {
 
 // RetryCount ...
 func (d *Device) RetryCount() (int, error) {
-	dev, err := d.open()
+	dev, err := d.getDevice()
 	if err != nil {
 		return 0, err
 	}
-	defer d.close(dev)
 
 	var retryCount C.int
 	if cErr := C.fido_dev_get_retry_count(dev, &retryCount); cErr != C.FIDO_OK {
@@ -663,11 +705,10 @@ func (d *Device) Assertion(
 		return nil, errors.Errorf("no rpID specified")
 	}
 
-	dev, err := d.open()
+	dev, err := d.getDevice()
 	if err != nil {
 		return nil, err
 	}
-	defer d.close(dev)
 
 	cAssert := C.fido_assert_new()
 	defer C.fido_assert_free(&cAssert)
@@ -765,11 +806,11 @@ func (d *Device) CredentialsInfo(pin string) (*CredentialsInfo, error) {
 	if pin == "" {
 		return nil, errors.Errorf("pin is required")
 	}
-	dev, err := d.open()
+
+	dev, err := d.getDevice()
 	if err != nil {
 		return nil, err
 	}
-	defer d.close(dev)
 
 	cCredMeta := C.fido_credman_metadata_new()
 	defer C.fido_credman_metadata_free(&cCredMeta)
@@ -792,11 +833,11 @@ func (d *Device) Credentials(rpID string, pin string) ([]*Credential, error) {
 	if rpID == "" {
 		return nil, errors.Errorf("no rpID specified")
 	}
-	dev, err := d.open()
+
+	dev, err := d.getDevice()
 	if err != nil {
 		return nil, err
 	}
-	defer d.close(dev)
 
 	cRK := C.fido_credman_rk_new()
 	defer C.fido_credman_rk_free(&cRK)
@@ -820,11 +861,10 @@ func (d *Device) Credentials(rpID string, pin string) ([]*Credential, error) {
 
 // DeleteCredential deletes a resident credential (if credMgmt is supported).
 func (d *Device) DeleteCredential(credID []byte, pin string) error {
-	dev, err := d.open()
+	dev, err := d.getDevice()
 	if err != nil {
 		return err
 	}
-	defer d.close(dev)
 
 	if cErr := C.fido_credman_del_dev_rk(dev, cBytes(credID), cLen(credID), cStringOrNil(pin)); cErr != C.FIDO_OK {
 		return errors.Wrap(errFromCode(cErr), "failed to delete key")
@@ -834,11 +874,10 @@ func (d *Device) DeleteCredential(credID []byte, pin string) error {
 
 // RelyingParties ...
 func (d *Device) RelyingParties(pin string) ([]*RelyingParty, error) {
-	dev, err := d.open()
+	dev, err := d.getDevice()
 	if err != nil {
 		return nil, err
 	}
-	defer d.close(dev)
 
 	cRP := C.fido_credman_rp_new()
 	defer C.fido_credman_rp_free(&cRP)
@@ -871,11 +910,10 @@ func plural(n uint8) string {
 
 // BioEnrollment starts a bio-enabled device enrollment
 func (d *Device) BioEnroll(pin string) error {
-	dev, err := d.open()
+	dev, err := d.getDevice()
 	if err != nil {
 		return err
 	}
-	defer d.close(dev)
 
 	template := C.fido_bio_template_new()
 	if template == nil {
@@ -936,11 +974,10 @@ func goBioTemplate(tempalateArray *C.fido_bio_template_array_t, idx C.size_t) (*
 
 // BioList lists all bio templates.
 func (d *Device) BioList(pin string) ([]BioTemplate, error) {
-	dev, err := d.open()
+	dev, err := d.getDevice()
 	if err != nil {
 		return nil, err
 	}
-	defer d.close(dev)
 
 	templateArray := C.fido_bio_template_array_new()
 	if templateArray == nil {
@@ -971,11 +1008,10 @@ func (d *Device) BioList(pin string) ([]BioTemplate, error) {
 
 // BioDelete deletes a bio template.
 func (d *Device) BioDelete(pin, templateId string) error {
-	dev, err := d.open()
+	dev, err := d.getDevice()
 	if err != nil {
 		return err
 	}
-	defer d.close(dev)
 
 	template := C.fido_bio_template_new()
 	if template == nil {
@@ -1000,11 +1036,10 @@ func (d *Device) BioDelete(pin, templateId string) error {
 
 // BioSetTemplateName sets the name of template with templateId.
 func (d *Device) BioSetTemplateName(pin, templateId, name string) error {
-	dev, err := d.open()
+	dev, err := d.getDevice()
 	if err != nil {
 		return err
 	}
-	defer d.close(dev)
 
 	template := C.fido_bio_template_new()
 	if template == nil {

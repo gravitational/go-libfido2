@@ -26,6 +26,7 @@ func ExampleDeviceLocations() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		defer device.Close()
 
 		hidInfo, err := device.CTAPHIDInfo()
 		if err != nil {
@@ -65,6 +66,7 @@ func ExampleDevice_MakeCredential() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer device.Close()
 
 	cdh := libfido2.RandBytes(32)
 	userID := libfido2.RandBytes(32)
@@ -123,6 +125,7 @@ func ExampleDevice_Assertion() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer device.Close()
 
 	cdh := libfido2.RandBytes(32)
 	userID := libfido2.RandBytes(32)
@@ -206,6 +209,7 @@ func ExampleDevice_Credentials() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer device.Close()
 
 	pin := "12345"
 
@@ -263,6 +267,7 @@ func Dont_ExampleDevice_Reset() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer device.Close()
 
 	log.Printf("Resetting: %+v\n", locs[0])
 	if err := device.Reset(); err != nil {
@@ -295,6 +300,7 @@ func Dont_ExampleDevice_SetPIN() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer device.Close()
 
 	pin := "12345"
 	if err := device.SetPIN(pin, ""); err != nil {
@@ -324,6 +330,7 @@ func ExampleDevice_MakeCredential_hmacSecret() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer device.Close()
 
 	cdh := bytes.Repeat([]byte{0x01}, 32)
 	rpID := "keys.pub"
@@ -378,6 +385,7 @@ func ExampleDevice_Assertion_hmacSecret() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer device.Close()
 
 	name := locs[0].Product + "/" + locs[0].Manufacturer
 
@@ -451,6 +459,7 @@ func ExampleDevice_DeleteCredential() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer device.Close()
 
 	pin := "12345"
 
@@ -500,6 +509,7 @@ func ExampleDevice_BioEnrollment() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer device.Close()
 
 	pin := "12345"
 
@@ -531,6 +541,7 @@ func ExampleDevice_BioList() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer device.Close()
 
 	pin := "12345"
 
@@ -564,6 +575,7 @@ func ExampleDevice_BioDelete() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer device.Close()
 
 	pin := "12345"
 
@@ -602,6 +614,7 @@ func ExampleDevice_BioSetTemplateName() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer device.Close()
 
 	pin := "12345"
 
