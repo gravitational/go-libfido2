@@ -2,6 +2,7 @@ package libfido2_test
 
 import (
 	"log"
+	"os"
 	"testing"
 	"time"
 
@@ -15,6 +16,10 @@ import (
 //  (without editing files).
 
 // TODO: It's important tests are run serially (a device can't handle concurrent requests).
+
+func getPIN() string {
+	return os.Getenv("FIDO2_PIN")
+}
 
 func TestDevices(t *testing.T) {
 	locs, err := libfido2.DeviceLocations()
@@ -65,7 +70,7 @@ func TestDeviceAssertionCancel(t *testing.T) {
 	cdh := libfido2.RandBytes(32)
 	userID := libfido2.RandBytes(32)
 	salt := libfido2.RandBytes(32)
-	pin := "12345"
+	pin := getPIN()
 
 	t.Logf("Make credential\n")
 	attest, err := device.MakeCredential(

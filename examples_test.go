@@ -70,7 +70,7 @@ func ExampleDevice_MakeCredential() {
 
 	cdh := libfido2.RandBytes(32)
 	userID := libfido2.RandBytes(32)
-	pin := "12345"
+	pin := getPIN()
 
 	attest, err := device.MakeCredential(
 		cdh,
@@ -107,8 +107,7 @@ func ExampleDevice_Assertion() {
 		return
 	}
 
-	// Note: change as appropriate.
-	const pin = "12345"
+	pin := getPIN()
 
 	locs, err := libfido2.DeviceLocations()
 	if err != nil {
@@ -211,7 +210,7 @@ func ExampleDevice_Credentials() {
 	}
 	defer device.Close()
 
-	pin := "12345"
+	pin := getPIN()
 
 	info, err := device.CredentialsInfo(pin)
 	if err != nil {
@@ -302,7 +301,7 @@ func Dont_ExampleDevice_SetPIN() {
 	}
 	defer device.Close()
 
-	pin := "12345"
+	pin := getPIN()
 	if err := device.SetPIN(pin, ""); err != nil {
 		log.Fatal(err)
 	}
@@ -334,7 +333,7 @@ func ExampleDevice_MakeCredential_hmacSecret() {
 
 	cdh := bytes.Repeat([]byte{0x01}, 32)
 	rpID := "keys.pub"
-	pin := "12345"
+	pin := getPIN()
 
 	attest, err := device.MakeCredential(
 		cdh,
@@ -391,7 +390,7 @@ func ExampleDevice_Assertion_hmacSecret() {
 
 	cdh := bytes.Repeat([]byte{0x01}, 32)
 	rpID := "keys.pub"
-	pin := "12345"
+	pin := getPIN()
 
 	testVectors := map[string]testVector{
 		"SoloKey 4.0/SoloKeys": testVector{
@@ -461,7 +460,7 @@ func ExampleDevice_DeleteCredential() {
 	}
 	defer device.Close()
 
-	pin := "12345"
+	pin := getPIN()
 
 	info, err := device.CredentialsInfo(pin)
 	if err != nil {
@@ -511,7 +510,7 @@ func ExampleDevice_BioEnrollment() {
 	}
 	defer device.Close()
 
-	pin := "12345"
+	pin := getPIN()
 
 	err = device.BioEnroll(pin)
 	if err != nil {
@@ -543,7 +542,7 @@ func ExampleDevice_BioList() {
 	}
 	defer device.Close()
 
-	pin := "12345"
+	pin := getPIN()
 
 	templates, err := device.BioList(pin)
 	if err != nil {
@@ -577,7 +576,7 @@ func ExampleDevice_BioDelete() {
 	}
 	defer device.Close()
 
-	pin := "12345"
+	pin := getPIN()
 
 	templates, err := device.BioList(pin)
 	if err != nil {
@@ -616,7 +615,7 @@ func ExampleDevice_BioSetTemplateName() {
 	}
 	defer device.Close()
 
-	pin := "12345"
+	pin := getPIN()
 
 	templates, err := device.BioList(pin)
 	if err != nil {
