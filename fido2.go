@@ -269,7 +269,7 @@ func openDevice(path string) (*C.fido_dev_t, error) {
 
 func (d *Device) getDevice() (*C.fido_dev_t, error) {
 	if d == nil {
-		return nil, errors.New("devicen nil")
+		return nil, errors.New("device nil")
 	}
 
 	d.mu.Lock()
