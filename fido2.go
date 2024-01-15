@@ -15,6 +15,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sync"
+	"time"
 	"unsafe"
 
 	"github.com/pkg/errors"
@@ -322,6 +323,23 @@ func (d *Device) Cancel() error {
 
 	if cErr := C.fido_dev_cancel(d.dev); cErr != C.FIDO_OK {
 		return errors.Wrap(errFromCode(cErr), "failed to cancel")
+	}
+
+	return nil
+}
+
+// SetTimeout informs libfido2 to not block for more than timeout (in
+// millisecond precision) when communicating with the device.
+// Timed out functions fail with FIDO_ERR_RX.
+func (d *Device) SetTimeout(timeout time.Duration) error {
+	dev, err := d.getDevice()
+	if err != nil {
+		return err
+	}
+
+	ms := C.int(timeout.Milliseconds())
+	if cErr := C.fido_dev_set_timeout(dev, ms); cErr != C.FIDO_OK {
+		return fmt.Errorf("set timeout: %w", errFromCode(cErr))
 	}
 
 	return nil
