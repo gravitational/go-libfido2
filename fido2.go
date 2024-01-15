@@ -552,6 +552,7 @@ func (d *Device) MakeCredential(
 	}
 
 	if cErr := C.fido_dev_make_cred(dev, cCred, cStringOrNil(pin)); cErr != C.FIDO_OK {
+		d.Cancel()
 		return nil, errors.Wrap(errFromCode(cErr), "failed to make credential")
 	}
 
@@ -751,6 +752,7 @@ func (d *Device) Assertion(
 
 	// Get assertion
 	if cErr := C.fido_dev_get_assert(dev, cAssert, cStringOrNil(pin)); cErr != C.FIDO_OK {
+		d.Cancel()
 		return nil, errors.Wrapf(errFromCode(cErr), "failed to get assertion")
 	}
 
