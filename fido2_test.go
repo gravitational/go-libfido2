@@ -2,6 +2,7 @@ package libfido2_test
 
 import (
 	"log"
+	"os"
 	"testing"
 	"time"
 
@@ -16,6 +17,10 @@ import (
 
 // TODO: It's important tests are run serially (a device can't handle concurrent requests).
 
+func getPIN() string {
+	return os.Getenv("FIDO2_PIN")
+}
+
 func TestDevices(t *testing.T) {
 	locs, err := libfido2.DeviceLocations()
 	require.NoError(t, err)
@@ -24,6 +29,7 @@ func TestDevices(t *testing.T) {
 	for _, loc := range locs {
 		device, err := libfido2.NewDevice(loc.Path)
 		require.NoError(t, err)
+		defer device.Close()
 
 		isFIDO2, err := device.IsFIDO2()
 		require.NoError(t, err)
@@ -59,13 +65,14 @@ func TestDeviceAssertionCancel(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer device.Close()
 
 	cdh := libfido2.RandBytes(32)
 	userID := libfido2.RandBytes(32)
 	salt := libfido2.RandBytes(32)
-	pin := "12345"
+	pin := getPIN()
 
-	t.Logf("Make credential\n")
+	t.Log("Touch your device")
 	attest, err := device.MakeCredential(
 		cdh,
 		libfido2.RelyingParty{
@@ -86,10 +93,11 @@ func TestDeviceAssertionCancel(t *testing.T) {
 
 	go func() {
 		time.Sleep(time.Second * 2)
-		t.Logf("Cancel")
+		t.Log("Cancel")
 		device.Cancel()
 	}()
 
+	t.Log("DON'T touch your device")
 	_, err = device.Assertion(
 		"keys.pub",
 		cdh,

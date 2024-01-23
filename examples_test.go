@@ -26,6 +26,7 @@ func ExampleDeviceLocations() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		defer device.Close()
 
 		hidInfo, err := device.CTAPHIDInfo()
 		if err != nil {
@@ -65,10 +66,11 @@ func ExampleDevice_MakeCredential() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer device.Close()
 
 	cdh := libfido2.RandBytes(32)
 	userID := libfido2.RandBytes(32)
-	pin := "12345"
+	pin := getPIN()
 
 	attest, err := device.MakeCredential(
 		cdh,
@@ -105,8 +107,7 @@ func ExampleDevice_Assertion() {
 		return
 	}
 
-	// Note: change as appropriate.
-	const pin = "12345"
+	pin := getPIN()
 
 	locs, err := libfido2.DeviceLocations()
 	if err != nil {
@@ -123,6 +124,7 @@ func ExampleDevice_Assertion() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer device.Close()
 
 	cdh := libfido2.RandBytes(32)
 	userID := libfido2.RandBytes(32)
@@ -206,8 +208,9 @@ func ExampleDevice_Credentials() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer device.Close()
 
-	pin := "12345"
+	pin := getPIN()
 
 	info, err := device.CredentialsInfo(pin)
 	if err != nil {
@@ -237,74 +240,6 @@ func ExampleDevice_Credentials() {
 	//
 }
 
-func Dont_ExampleDevice_Reset() {
-	if os.Getenv("FIDO2_EXAMPLES") != "1" {
-		return
-	}
-	libfido2.SetLogger(libfido2.NewLogger(libfido2.DebugLevel))
-
-	if os.Getenv("FIDO2_EXAMPLES_RESET") != "1" {
-		log.Println("only runs if FIDO2_EXAMPLES_RESET=1")
-		return
-	}
-
-	locs, err := libfido2.DeviceLocations()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if len(locs) == 0 {
-		log.Println("No devices")
-		return
-	}
-
-	log.Printf("Using device: %+v\n", locs[0])
-	path := locs[0].Path
-	device, err := libfido2.NewDevice(path)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	log.Printf("Resetting: %+v\n", locs[0])
-	if err := device.Reset(); err != nil {
-		log.Fatal(err)
-	}
-
-	// Output:
-	//
-
-}
-
-func Dont_ExampleDevice_SetPIN() {
-	if os.Getenv("FIDO2_EXAMPLES_SET_PIN") != "1" {
-		return
-	}
-	libfido2.SetLogger(libfido2.NewLogger(libfido2.DebugLevel))
-
-	locs, err := libfido2.DeviceLocations()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if len(locs) == 0 {
-		log.Println("No devices")
-		return
-	}
-
-	log.Printf("Using device: %+v\n", locs[0])
-	path := locs[0].Path
-	device, err := libfido2.NewDevice(path)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	pin := "12345"
-	if err := device.SetPIN(pin, ""); err != nil {
-		log.Fatal(err)
-	}
-
-	// Output:
-	//
-}
-
 func ExampleDevice_MakeCredential_hmacSecret() {
 	if os.Getenv("FIDO2_EXAMPLES") != "1" {
 		return
@@ -324,10 +259,11 @@ func ExampleDevice_MakeCredential_hmacSecret() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer device.Close()
 
 	cdh := bytes.Repeat([]byte{0x01}, 32)
 	rpID := "keys.pub"
-	pin := "12345"
+	pin := getPIN()
 
 	attest, err := device.MakeCredential(
 		cdh,
@@ -353,6 +289,9 @@ func ExampleDevice_MakeCredential_hmacSecret() {
 	}
 
 	log.Printf("Credential ID: %s\n", hex.EncodeToString(attest.CredentialID))
+
+	// Output:
+	//
 }
 
 type testVector struct {
@@ -378,12 +317,13 @@ func ExampleDevice_Assertion_hmacSecret() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer device.Close()
 
 	name := locs[0].Product + "/" + locs[0].Manufacturer
 
 	cdh := bytes.Repeat([]byte{0x01}, 32)
 	rpID := "keys.pub"
-	pin := "12345"
+	pin := getPIN()
 
 	testVectors := map[string]testVector{
 		"SoloKey 4.0/SoloKeys": testVector{
@@ -430,52 +370,6 @@ func ExampleDevice_Assertion_hmacSecret() {
 	if testVector.Secret != hex.EncodeToString(assertion.HMACSecret) {
 		log.Fatalf("Expected %s", testVector.Secret)
 	}
-}
-
-func ExampleDevice_DeleteCredential() {
-	if os.Getenv("FIDO2_EXAMPLES") != "1" {
-		return
-	}
-	locs, err := libfido2.DeviceLocations()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if len(locs) == 0 {
-		log.Fatal("No devices")
-		return
-	}
-
-	log.Printf("Using device: %+v\n", locs[0])
-	path := locs[0].Path
-	device, err := libfido2.NewDevice(path)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	pin := "12345"
-
-	info, err := device.CredentialsInfo(pin)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Printf("Info: %+v\n", info)
-
-	rps, err := device.RelyingParties(pin)
-	if err != nil {
-		log.Fatal(err)
-	}
-	for _, rp := range rps {
-		creds, err := device.Credentials(rp.ID, pin)
-		if err != nil {
-			log.Fatal(err)
-		}
-		for _, cred := range creds {
-			log.Printf("Deleting: %s\n", hex.EncodeToString(cred.ID))
-			if err := device.DeleteCredential(cred.ID, pin); err != nil {
-				log.Fatal(err)
-			}
-		}
-	}
 
 	// Output:
 	//
@@ -500,8 +394,9 @@ func ExampleDevice_BioEnrollment() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer device.Close()
 
-	pin := "12345"
+	pin := getPIN()
 
 	err = device.BioEnroll(pin)
 	if err != nil {
@@ -531,8 +426,9 @@ func ExampleDevice_BioList() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer device.Close()
 
-	pin := "12345"
+	pin := getPIN()
 
 	templates, err := device.BioList(pin)
 	if err != nil {
@@ -540,85 +436,6 @@ func ExampleDevice_BioList() {
 	}
 
 	log.Println(templates)
-
-	// Output:
-	//
-}
-
-func ExampleDevice_BioDelete() {
-	if os.Getenv("FIDO2_EXAMPLES") != "1" {
-		return
-	}
-	locs, err := libfido2.DeviceLocations()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if len(locs) == 0 {
-		log.Fatal("No devices")
-		return
-	}
-
-	log.Printf("Using device: %+v\n", locs[0])
-	path := locs[0].Path
-	device, err := libfido2.NewDevice(path)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	pin := "12345"
-
-	templates, err := device.BioList(pin)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for _, template := range templates {
-		err := device.BioDelete(pin, template.ID)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-
-	// Output:
-	//
-}
-
-func ExampleDevice_BioSetTemplateName() {
-	if os.Getenv("FIDO2_EXAMPLES") != "1" {
-		return
-	}
-	locs, err := libfido2.DeviceLocations()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if len(locs) == 0 {
-		log.Fatal("No devices")
-		return
-	}
-
-	log.Printf("Using device: %+v\n", locs[0])
-	path := locs[0].Path
-	device, err := libfido2.NewDevice(path)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	pin := "12345"
-
-	templates, err := device.BioList(pin)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if len(templates) == 0 {
-		log.Fatal("no bio template")
-		return
-	}
-
-	template := templates[0]
-	newName := "newName"
-
-	device.BioSetTemplateName(pin, template.ID, newName)
 
 	// Output:
 	//
