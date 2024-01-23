@@ -6,14 +6,9 @@ needs of [Teleport](https://github.com/gravitational/teleport).
 
 The fork exists because:
 
-1. It allows us to experiment and land required changes to go-libfido2 faster;
-   and
-2. It allows us to tweak CGO build directives for the Teleport binaries.
-
-We do intend to contribute widely valuable changes to the original repo, meaning
-that over time (1) should become a non-issue. If the CGO build changes turn out
-to be widely applicable (and accepted by the upstream repo), then the fork
-becomes obsolete.
+1. It allows us to experiment and land required changes to go-libfido2 faster,
+2. It allows us to make necessary breaking changes; and
+3. It allows us to tweak CGO build directives for the Teleport binaries.
 
 The `master` branch reflects the upstream master.
 
@@ -28,6 +23,15 @@ Static builds refer to the `libfido2-static` library; users are expected to
 write their own definition for the libfido2-static.pc file in this case.
 
 You are looking at the `teleport` branch now.
+
+## Breaking changes
+
+Breaking changes in relation to upstream.
+
+* Revamped build process (`libfido2` and `libfido2static` build tags, everything
+  based on `pkg-config`)
+* Assertion func returns multiple assertions (#7)
+* Devices have to be explicitly closed (#15)
 
 # go-libfido2
 
