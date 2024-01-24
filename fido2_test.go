@@ -111,3 +111,78 @@ func TestDeviceAssertionCancel(t *testing.T) {
 	)
 	require.EqualError(t, errors.Cause(err), "keep alive cancel")
 }
+
+func TestDevice_TouchRequest(t *testing.T) {
+	locs, err := libfido2.DeviceLocations()
+	if err != nil {
+		t.Fatalf("DeviceLocations failed: %v", err)
+	}
+	if len(locs) == 0 {
+		t.Fatalf("No devices found")
+	}
+	loc := locs[0]
+
+	t.Logf("Using device: %+v\n", loc)
+	dev, err := libfido2.NewDevice(loc.Path)
+	if err != nil {
+		t.Fatalf("NewDevice failed: %v", err)
+	}
+	defer dev.Close()
+
+	t.Run("success", func(t *testing.T) {
+		t.Logf("Touch your %v\n", locs[0].Product)
+		touch, err := dev.TouchBegin()
+		if err != nil {
+			t.Fatalf("TouchBegin failed: %v", err)
+		}
+
+		maxWait := time.After(30 * time.Second)
+		for {
+			touched, err := touch.Status(200 * time.Second)
+			if err != nil {
+				t.Errorf("Status failed, aborting: %v", err)
+				break
+			}
+			if touched {
+				t.Log("Touch detected")
+				break
+			}
+
+			select {
+			case <-maxWait:
+				// Exit select and break from loop below.
+			default:
+				continue
+			}
+			t.Error("Timed out waiting for touch")
+			break
+		}
+
+		if err := touch.Stop(); err != nil {
+			t.Errorf("Stop failed: %v", err)
+		}
+		if err := touch.Stop(); err != nil {
+			t.Errorf("Subsequent Stops should never error: %v", err)
+		}
+	})
+
+	t.Run("cancel", func(t *testing.T) {
+		t.Log("Testing touch cancel")
+
+		touch, err := dev.TouchBegin()
+		if err != nil {
+			t.Fatalf("TouchBegin failed: %v", err)
+		}
+
+		// Give it a moment to start.
+		time.Sleep(2 * time.Second)
+
+		// Terminate touch request.
+		if err := touch.Stop(); err != nil {
+			t.Errorf("Stop failed: %v", err)
+		}
+		if err := touch.Stop(); err != nil {
+			t.Errorf("Subsequent Stops should never error: %v", err)
+		}
+	})
+}
