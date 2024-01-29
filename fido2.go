@@ -1087,6 +1087,10 @@ func (d *Device) BioSetTemplateName(pin, templateId, name string) error {
 }
 
 // TouchRequest is a device touch request initiated by [Device.TouchBegin].
+//
+// TouchRequests are not thread-safe, much in the same way that the devices
+// themselves are essentially single-threaded.
+// Do not call [TouchRequest.Status] or [TouchRequest.Stop] concurrently.
 type TouchRequest struct {
 	dev     *Device
 	stopped bool
