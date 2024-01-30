@@ -1086,6 +1086,74 @@ func (d *Device) BioSetTemplateName(pin, templateId, name string) error {
 	return nil
 }
 
+// TouchRequest is a device touch request initiated by [Device.TouchBegin].
+//
+// TouchRequests are not thread-safe, much in the same way that the devices
+// themselves are essentially single-threaded.
+// Do not call [TouchRequest.Status] or [TouchRequest.Stop] concurrently.
+type TouchRequest struct {
+	dev     *Device
+	stopped bool
+}
+
+// TouchBegin initiates a device touch request.
+// Verify the request status using [TouchRequest.Status] and stop the request
+// using [TouchRequest.Stop].
+func (d *Device) TouchBegin() (*TouchRequest, error) {
+	dev, err := d.getDevice()
+	if err != nil {
+		return nil, err
+	}
+
+	if cErr := C.fido_dev_get_touch_begin(dev); cErr != C.FIDO_OK {
+		return nil, fmt.Errorf("touch begin: %w", errFromCode(cErr))
+	}
+
+	return &TouchRequest{dev: d}, nil
+}
+
+// Status verifies the status of the touch request.
+// The timeout is measured in milliseconds and enforced to not exceed a
+// frequency of 5Hz or 0.2 seconds.
+// See https://developers.yubico.com/libfido2/Manuals/fido_dev_get_touch_status.html#CAVEATS.
+func (r *TouchRequest) Status(timeout time.Duration) (touched bool, err error) {
+	dev, err := r.dev.getDevice()
+	if err != nil {
+		return false, err
+	}
+
+	ms := C.int(timeout.Milliseconds())
+	const minFrequencyMs = 200 // aka 0.2 seconds
+	if ms < minFrequencyMs {
+		ms = minFrequencyMs
+	}
+
+	var resp C.int
+	if cErr := C.fido_dev_get_touch_status(dev, &resp, ms); cErr != C.FIDO_OK {
+		r.stopped = true // Request terminated.
+		return false, fmt.Errorf("touch status: %w", errFromCode(cErr))
+	}
+	if resp == 1 {
+		r.stopped = true // Request terminated.
+		return true, nil
+	}
+	return false, nil
+}
+
+// Stop terminates the touch request.
+// Requests may be stopped on demand, or automatically stopped when
+// [TouchRequest.Status] returns true or errors.
+// Only the first stop is effective, therefore it's safe to defer-Stop.
+// Stop is otherwise equivalent to [Device.Cancel].
+func (r *TouchRequest) Stop() error {
+	if r.stopped {
+		return nil
+	}
+
+	r.stopped = true
+	return r.dev.Cancel()
+}
+
 func goStrings(argc C.int, argv **C.char) []string {
 	length := int(argc)
 	tmpslice := (*[1 << 30]*C.char)(unsafe.Pointer(argv))[:length:length]
