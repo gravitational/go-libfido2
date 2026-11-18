@@ -1156,7 +1156,7 @@ func (r *TouchRequest) Stop() error {
 
 func goStrings(argc C.int, argv **C.char) []string {
 	length := int(argc)
-	tmpslice := (*[1 << 30]*C.char)(unsafe.Pointer(argv))[:length:length]
+	tmpslice := unsafe.Slice(argv, length)
 	gostrings := make([]string, length)
 	for i, s := range tmpslice {
 		gostrings[i] = C.GoString(s)
@@ -1166,7 +1166,7 @@ func goStrings(argc C.int, argv **C.char) []string {
 
 func goBools(argc C.int, argv *C.bool) []bool {
 	length := int(argc)
-	tmpslice := (*[1 << 30]C.bool)(unsafe.Pointer(argv))[:length:length]
+	tmpslice := unsafe.Slice(argv, length)
 	gobools := make([]bool, length)
 	for i, s := range tmpslice {
 		gobools[i] = bool(s)
