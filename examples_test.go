@@ -375,7 +375,7 @@ func ExampleDevice_Assertion_hmacSecret() {
 	//
 }
 
-func ExampleDevice_BioEnrollment() {
+func ExampleDevice_BioEnroll() {
 	if os.Getenv("FIDO2_EXAMPLES") != "1" {
 		return
 	}
